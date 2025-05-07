@@ -14,7 +14,7 @@ public class buildableObject : MonoBehaviour
     public float transitionTime;
     protected characterConflict cr;
 
-    [Header("Canvas Ayarları")]
+    [Header("Canvas Properties")]
     public float canvasPositionY; // Inspector’dan ayarlanacak
     public Vector3 canvasScale = new Vector3(1,1,1);     // Inspector’dan ayarlanacak
     public Vector2 canvasSize;
