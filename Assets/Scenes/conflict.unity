@@ -601,7 +601,7 @@ SpriteRenderer:
   m_LightmapParameters: {fileID: 0}
   m_SortingLayerID: 0
   m_SortingLayer: 0
-  m_SortingOrder: 0
+  m_SortingOrder: -1
   m_Sprite: {fileID: 2687089599697779953, guid: 33e98e964205af44482f43d79c7c4ff3, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
@@ -1379,7 +1379,7 @@ SpriteRenderer:
   m_LightmapParameters: {fileID: 0}
   m_SortingLayerID: 0
   m_SortingLayer: 0
-  m_SortingOrder: 0
+  m_SortingOrder: 1
   m_Sprite: {fileID: -7183555727880953948, guid: c013c86c7fd42a0419fad389a3af40f7, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
@@ -1400,7 +1400,7 @@ Transform:
   m_GameObject: {fileID: 1405155109}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 10.13, y: -3.703, z: 0}
+  m_LocalPosition: {x: 1.12, y: -3.703, z: 0}
   m_LocalScale: {x: 0.83619386, y: 0.83619386, z: 0.83619386}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1757,8 +1757,8 @@ MonoBehaviour:
   currentPhase: 0
   timeSpeed: 1
   currentTime: 6
-  hammerStock: 2
-  bowStock: 1
+  hammerStock: 1
+  bowStock: 2
 --- !u!4 &1545980109
 Transform:
   m_ObjectHideFlags: 0
