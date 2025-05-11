@@ -23,11 +23,11 @@ In **Mediavel Side Scroller Project**, your goal is to survive nightly enemy att
 
 **In-game Screenshots (The game is not finished yet, this is just a gameplay demo!!!):**
 
-**Builder Behavior :**
+**Builder Behavior (2x Accelerated) :**
 
 ![Builder Behavior](Assets/GameplayVideos/MediavelDemo1.gif)
 
-**Archer Behavior :**
+**Archer Behavior (2x Accelerated) :**
 
 ![Archer Behavior](Assets/GameplayVideos/MediavelDemo2.gif)
 
