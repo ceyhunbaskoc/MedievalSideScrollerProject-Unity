@@ -69,4 +69,14 @@ In **Mediavel Side Scroller Project**, your goal is to survive nightly enemy att
 ## 🗺️ Village Management  
 - **Balance Economy and Defense:** Manage your funds wisely to maintain a strong defense while growing your village.  
 - **Recruit and Equip:** Use your money to recruit villagers and equip them with bows or tools.  
-- **Build Strategically:** Choose where to place towers and walls based on enemy attack patterns. 
+- **Build Strategically:** Choose where to place towers and walls based on enemy attack patterns.
+
+---
+
+## 🛠️ Building Construction Logic
+- **Our main character arrives at an object that can be turned into a building (stone, mound of earth, bush, etc.) and fills the money slots.**
+- **The building enters the construction process and the nearest builders rush to the construction site.**
+- **The more builders there are in a construction site, the faster the construction will be finished.**
+- **When the building is completed, a sum of money is deducted according to the value of the building and the builder receives this money.**
+- **Builder gives it to us when he is next to our character.**
+
