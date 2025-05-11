@@ -5,7 +5,7 @@
 A pixel art style, side-scrolling kingdom management game. Build, defend, and expand your village using only one resource: **money**!  
 
 ## 🎮 About the Game  
-In **Kingdom Defense**, your goal is to survive nightly enemy attacks while strategically expanding your village. You can only use **money** to build, upgrade, and manage your kingdom. 
+In **Mediavel Side Scroller Project**, your goal is to survive nightly enemy attacks while strategically expanding your village. You can only use **money** to build, upgrade, and manage your kingdom. 
 
 ### 🌟 Key Features  
 - **Unique Economy System:** Manage your kingdom using only money.  
