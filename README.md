@@ -57,9 +57,9 @@ In **Mediavel Side Scroller Project**, your goal is to survive nightly enemy att
 
 ## 🔄 How to Play  
 1. Start your journey with a small village and limited money.  
-2. Use the **money throw mechanic** to interact with objects:  
+2. Use the **money throw mechanic** to interact with objects (The player will learn these mechanics by playing!!!):  
    - Throw money at stones to build **archer towers**.  
-   - Throw money at wood piles to construct **walls**.  
+   - Throw money at pile of dirt to construct **walls**.  
 3. Strategically recruit villagers to become **archers** or **builders**.  
 4. Expand your kingdom by upgrading the main building.  
 5. Defend against nightly enemy waves and gather enough resources to thrive.  
