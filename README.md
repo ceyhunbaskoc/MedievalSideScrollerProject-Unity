@@ -23,9 +23,13 @@ In **Kingdom Defense**, your goal is to survive nightly enemy attacks while stra
 
 **In-game Screenshots (The game is not finished yet, this is just a gameplay demo!!!):**
 
+**Builder Behavior :**
+
 ![Builder Behavior](Assets/GameplayVideos/MediavelDemo1.gif)
 
-![Builder Behavior](Assets/GameplayVideos/MediavelDemo2.gif)
+**Archer Behavior :**
+
+![Archer Behavior](Assets/GameplayVideos/MediavelDemo2.gif)
 
 ---
 
