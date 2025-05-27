@@ -1,8 +1,9 @@
 ﻿using System.Collections;
+using System.Collections.Generic;
 using Unity.VisualScripting;
 using UnityEngine;
 using static Citizen;
-using static UnityEditor.PlayerSettings;
+using static Unity.Cinemachine.CinemachineTargetGroup;
 using static UnityEngine.GraphicsBuffer;
 
 public class Cconflict : MonoBehaviour
@@ -14,7 +15,7 @@ public class Cconflict : MonoBehaviour
 
     [Header("Bools")]
     public bool equipment = false;
-    public bool inPatrol = false,calculateDirectionPatrol = false,NPCMoney=false, isAttacking=false, isBuild=false;
+    public bool inPatrol = false,calculateDirectionPatrol = false,NPCMoney=false, isAttacking=false, isBuild=false,goToBuild=false,nightBehavior=false;
 
     [Header("Speeds")]
     public float NPCspeed;
@@ -27,9 +28,17 @@ public class Cconflict : MonoBehaviour
     public float shootForce, attackCoolDown;
     [Header("Builder")]
     public float builderRange;
-    [Header("Archer and Builder Sprites")]
-    public Sprite NPC;
-    public Sprite none,archer,builder;
+
+    [Space]
+    public Vector2[] waitingPoints = new Vector2[] {
+    new Vector2(0, -0.7937559f)
+    // ... ihtiyaca göre artır
+};
+    public int waitingIndex; // Her NPC'ye Inspector'dan veya spawn sırasında atanacak
+
+    //[Header("Archer and Builder Sprites")]
+    //public Sprite NPC;
+    //public Sprite none,archer,builder;
     [Space]
     public float patrolWalkDistance;
     public float patrolCoolDown;
@@ -38,33 +47,57 @@ public class Cconflict : MonoBehaviour
     Collider2D NPCTarget;
     Rigidbody2D rb;
     GameObject bowStock, hamStock;
-    Coroutine patrolCoroutine, currentBehaviorCoroutine;
+    Coroutine patrolCoroutine, currentBehaviorCoroutine,GoStockCoroutine;
     SpriteRenderer sr;
     Vector2 patrolDirection;
     float targetXPatrol;
-
+    Animator an;
+    float threshold = 0.01f;  // Hızın sıfır kabul edileceği eşik değeri
+    GameManager.DayPhase phase;
+    private bool reachedNightTarget = false;
+    private float nightTargetX;
+    bool zeroReached = false;
+    bool nightBehaviorStarted = false;
+    float random;
+    GameObject nightTargetWall = null;
+    
 
     void Start()
     {
+        waitingIndex = Random.Range(0, waitingPoints.Length);
         rb = GetComponent<Rigidbody2D>();
         bowStock = GameObject.Find("BowStock");
         hamStock = GameObject.Find("HammerStock");
         sr= GetComponent<SpriteRenderer>();
+        an = GetComponent<Animator>();
     }
 
     void Update()
     {
+        if (isAttacking)
+            an.SetBool("isAttacking", true);
+        else
+            an.SetBool("isAttacking", false);
         if (currentJob == Jobs.None)
         {
             if (!CitizensManager.Instance.None.Contains(gameObject))
             {
                 CitizensManager.Instance.None.Add(gameObject);
-                sr.sprite = NPC;
+                an.SetBool("NPC", true);
             }
+            if(!NPCMoney)
             CheckNearbyAndCollect();
+            else
+            {
+                if (!zeroReached&& GameManager.Instance.hammerStock == 0 && GameManager.Instance.bowStock == 0)
+                    GoToZero();
+                CheckStocks();
+            }
+
         }
         if (currentJob == Jobs.Archer)
         {
+            
             if (CitizensManager.Instance.None.Contains(gameObject))
                 CitizensManager.Instance.None.Remove(gameObject);
             if (!CitizensManager.Instance.Archers.Contains(gameObject))
@@ -74,7 +107,19 @@ public class Cconflict : MonoBehaviour
             }
             tag = "citizen";
             if (!equipment)
-                GoStockandGetEquipment(bowStock, citizenRunSpeed);
+            {
+                if (GameManager.Instance.bowStock != 0)
+                {
+                    an.SetBool("isRun", true);
+                    GoStockandGetEquipment(bowStock, citizenRunSpeed);
+                }
+                else
+                {
+                    LoseJob();
+                    NPCMoney = true;
+                    moneyCount=1;
+                }
+            }
             else
             {
                 if (currentBehaviorCoroutine == null)
@@ -95,41 +140,115 @@ public class Cconflict : MonoBehaviour
             }
             tag = "citizen";
             if (!equipment)
-                GoStockandGetEquipment(hamStock, citizenRunSpeed);
+            {
+
+                if (GameManager.Instance.hammerStock != 0)
+                {
+                    an.SetBool("isRun", true);
+                    GoStockandGetEquipment(hamStock, citizenRunSpeed);
+                }
+                else
+                {
+                    LoseJob();
+                    NPCMoney = true;
+                    moneyCount = 1;
+                }
+            }
             else
                 if (currentBehaviorCoroutine == null)
                 currentBehaviorCoroutine = StartCoroutine(BuilderBehaviour());
         }
+            if (Mathf.Abs(rb.linearVelocity.x) > threshold)
+            {
+                sr.flipX = rb.linearVelocity.x < 0;
+                if (!isBuild)
+                    an.SetBool("isWalking", true);
+            }
+            else
+            {
+                if (!isBuild )
+                    an.SetBool("isWalking", false);
+            }
+        phase = GameManager.Instance.currentPhase;
+        switch(phase)
+        {
+            case GameManager.DayPhase.Sunrise:
+                nightBehavior = false;
+                nightBehaviorStarted= false;
+                isBuild = false;
+                inPatrol = false;
+                isAttacking = false;
+                if (currentBehaviorCoroutine != null)
+                {
+                    StopCoroutine(currentBehaviorCoroutine);
+                    currentBehaviorCoroutine = null;
+                }
+                if (patrolCoroutine != null)
+                {
+                    StopCoroutine(patrolCoroutine);
+                    patrolCoroutine = null;
+                }
 
-        if (rb.linearVelocity.x > 0)
-            sr.flipX = false;
-        if(rb.linearVelocity.x < 0)
-            sr.flipX = true;
+                break;
+            case GameManager.DayPhase.Night:
+                nightBehavior = true;
+                if (!nightBehaviorStarted)
+                {
+                    random = Random.Range(2f, 5f);
+                    int index=0;
+                    if (currentJob == Jobs.Archer)
+                    index = CitizensManager.Instance.Archers.IndexOf(gameObject);
+                    if (currentJob == Jobs.Builder)
+                        index = CitizensManager.Instance.Builders.IndexOf(gameObject);
+                    if (index % 2 == 0)
+                        nightTargetWall = GetLeftmostWall();
+                    else
+                        nightTargetWall = GetRightmostWall();
+                    print(nightTargetWall.name);        
+                }
+                break;
+
+        }
+        if(phase == GameManager.DayPhase.Sunrise&&reachedNightTarget)
+        {
+            reachedNightTarget = false;
+            nightBehaviorStarted = false;
+        }
 
         if (HP <= 0)
             LoseJob();
     }
-    private void CheckNearbyAndCollect()
+    void GoToZero()
     {
-        Collider2D[] colliders = Physics2D.OverlapCircleAll(transform.position, NPCdetectionRadius, LayerMask.GetMask("coin"));
-        if (colliders.Length != 0)
+        Vector2 target = waitingPoints[waitingIndex];
+        StartCoroutine(MoveToPoint(target));
+    }
+    IEnumerator MoveToPoint(Vector2 target)
+    {
+        an.SetBool("isRun", true);
+        while (Vector2.Distance(transform.position, target) > 0.1f)
         {
-            NPCTarget = colliders[0];
+            Vector2 dir = (target - (Vector2)transform.position).normalized;
+            rb.linearVelocity = dir * NPCspeed;
+            yield return null;
         }
-        else
-        {
-            return;
-        }
-        if (!NPCMoney)
-        {
-            Vector3 direction = (new Vector3(NPCTarget.transform.position.x, transform.position.y) - transform.position).normalized;
-            rb.linearVelocity = direction * NPCspeed;
+        rb.linearVelocity = Vector2.zero;
+        an.SetBool("isRun", false);
+        // Burada idle bekle
+        StartCoroutine(WaitForStock());
+    }
+    IEnumerator WaitForStock()
+    {
+        while (GameManager.Instance.hammerStock == 0 && GameManager.Instance.bowStock == 0)
+            yield return null; // Stok gelene kadar bekle
 
-        }
-
-        if (Mathf.Abs(transform.position.x - NPCTarget.transform.position.x) < 0.1f)
+        // Stok oluştu, mesleği almaya git
+        CheckStocks();
+    }
+    void CheckStocks()
+    {
+        if (GameManager.Instance.hammerStock != 0 || GameManager.Instance.bowStock != 0)
         {
-            NPCMoney = true;
             if (GameManager.Instance.hammerStock > GameManager.Instance.bowStock)
             {
                 StartCoroutine(NPCGetCoinWait(Jobs.Builder));
@@ -146,10 +265,78 @@ public class Cconflict : MonoBehaviour
             }
         }
     }
+    private void CheckNearbyAndCollect()
+    {
+        Collider2D[] colliders = Physics2D.OverlapCircleAll(transform.position, NPCdetectionRadius, LayerMask.GetMask("coin"));
+        if (!NPCMoney)
+        {
+            if (colliders.Length != 0)
+            {
+                NPCTarget = colliders[0];
+            }
+            else
+            {
+                return;
+            }
+        }
+
+        if (!NPCMoney&& Mathf.Abs(transform.position.x - NPCTarget.transform.position.x) > 0.2f)
+        {
+            Vector3 direction = (new Vector3(NPCTarget.transform.position.x, transform.position.y) - transform.position).normalized;
+            rb.linearVelocity = direction * NPCspeed;
+
+        }
+
+        if (Mathf.Abs(transform.position.x - NPCTarget.transform.position.x) < 0.2f&&NPCTarget!=null)
+        {
+            if (GameManager.Instance.hammerStock != 0 || GameManager.Instance.bowStock != 0)
+            {
+                if (GameManager.Instance.hammerStock > GameManager.Instance.bowStock)
+                {
+                    StartCoroutine(NPCGetCoinWait(Jobs.Builder));
+                }
+                else if (GameManager.Instance.hammerStock < GameManager.Instance.bowStock)
+                {
+                    StartCoroutine(NPCGetCoinWait(Jobs.Archer));
+                }
+                else if (GameManager.Instance.hammerStock == GameManager.Instance.bowStock)
+                {
+                    Jobs job;
+                    job = Random.Range(0, 2) == 0 ? Jobs.Archer : Jobs.Builder;
+                    StartCoroutine(NPCGetCoinWait(job));
+                }
+            }
+            else
+                print("tüm stoklar boş");
+        }else if (NPCMoney)
+        {
+            if (GameManager.Instance.hammerStock != 0 || GameManager.Instance.bowStock != 0)
+            {
+                if (GameManager.Instance.hammerStock > GameManager.Instance.bowStock)
+                {
+                    StartCoroutine(NPCGetCoinWait(Jobs.Builder));
+                }
+                else if (GameManager.Instance.hammerStock < GameManager.Instance.bowStock)
+                {
+                    StartCoroutine(NPCGetCoinWait(Jobs.Archer));
+                }
+                else if (GameManager.Instance.hammerStock == GameManager.Instance.bowStock)
+                {
+                    Jobs job;
+                    job = Random.Range(0, 2) == 0 ? Jobs.Archer : Jobs.Builder;
+                    StartCoroutine(NPCGetCoinWait(job));
+                }
+            }else if(GameManager.Instance.hammerStock == 0 && GameManager.Instance.bowStock == 0&& Mathf.Abs(transform.position.x - 0) > 0.2f)
+            {
+                Vector3 direction = (new Vector3(0,transform.position.y,transform.position.z)-transform.position).normalized;
+                rb.linearVelocity = direction * NPCspeed;
+            }
+        }
+    }
 
     IEnumerator NPCGetCoinWait(Jobs job)
     {
-        yield return new WaitUntil(() => moneyCount == 1);
+        yield return new WaitUntil(() => NPCMoney);
         currentJob = job;
         HP = 100;
         NPCMoney = false;
@@ -158,16 +345,112 @@ public class Cconflict : MonoBehaviour
     {
         Vector3 direction = (new Vector3(target.transform.position.x, transform.position.y) - transform.position).normalized;
         rb.linearVelocity = direction * speed;
-        sr.sprite = none;
+        an.SetBool("NPC", true);
+        if(target==bowStock&&GameManager.Instance.bowStock==0)
+        {
+            LoseJob();
+            NPCMoney = true;
+            moneyCount = 1;
+            an.SetBool("isWalking", false);
+            return;
+        }
+        if (target == hamStock && GameManager.Instance.hammerStock == 0)
+        {
+            LoseJob();
+            NPCMoney = true;
+            moneyCount = 1;
+            an.SetBool("isWalking", false);
+            return;
+        }
         if (Mathf.Abs(transform.position.x - target.transform.position.x) < 0.1f)
         {
+            an.SetBool("isRun", false);
             equipment = true;
-            if(target==bowStock)
-                sr.sprite = archer;
+            an.SetBool("NPC", false);
+            if (target == bowStock)
+            {
+                GameManager.Instance.bowStock--;
+                an.SetBool("Archer", true);
+            }
             if (target == hamStock)
-                sr.sprite = builder;
+            {
+                GameManager.Instance.hammerStock--;
+                an.SetBool("Builder", true);
+            }
         }
     }
+    //IEnumerator GoStockandGetEquipment(GameObject target, float speed)
+    //{
+    //    // Stoğa doğru hareket
+    //    while (Vector2.Distance(transform.position, target.transform.position) > 0.2f)
+    //    {
+    //        Vector3 direction = (new Vector3(target.transform.position.x, transform.position.y) - transform.position).normalized;
+    //        rb.linearVelocity = direction * speed;
+    //        an.SetBool("NPC", true);
+
+    //        // Yolda stok biterse işi bırak
+    //        if (target == bowStock && GameManager.Instance.bowStock == 0)
+    //        {
+    //            LoseJob();
+    //            NPCMoney = true;
+    //            moneyCount = 1;
+    //            an.SetBool("isRun", false);
+    //            an.SetBool("isWalking", false);
+    //            rb.linearVelocity = Vector2.zero;
+    //            yield break;
+    //        }
+    //        if (target == hamStock && GameManager.Instance.hammerStock == 0)
+    //        {
+    //            LoseJob();
+    //            NPCMoney = true;
+    //            moneyCount = 1;
+    //            an.SetBool("isRun", false);
+    //            an.SetBool("isWalking", false);
+    //            rb.linearVelocity = Vector2.zero;
+    //            yield break;
+    //        }
+    //        yield return null;
+    //    }
+
+    //    // Stoğa vardığında hareketi ve animasyonu durdur
+    //    rb.linearVelocity = Vector2.zero;
+    //    an.SetBool("isRun", false);
+    //    an.SetBool("NPC", false);
+
+    //    // Stoğa vardığında tekrar stok kontrolü
+    //    if (target == bowStock)
+    //    {
+    //        if (GameManager.Instance.bowStock > 0)
+    //        {
+    //            equipment = true;
+    //            GameManager.Instance.bowStock--;
+    //            an.SetBool("Archer", true);
+    //        }
+    //        else
+    //        {
+    //            LoseJob();
+    //            NPCMoney = true;
+    //            moneyCount = 1;
+    //            an.SetBool("isWalking", false);
+    //        }
+    //    }
+    //    else if (target == hamStock)
+    //    {
+    //        if (GameManager.Instance.hammerStock > 0)
+    //        {
+    //            equipment = true;
+    //            GameManager.Instance.hammerStock--;
+    //            an.SetBool("Builder", true);
+    //        }
+    //        else
+    //        {
+    //            LoseJob();
+    //            NPCMoney = true;
+    //            moneyCount = 1;
+    //            an.SetBool("isWalking", false);
+    //        }
+    //    }
+    //}
 
     ////////////////// Archer Behaviour//////////////////////
     IEnumerator ArcherBehavior()
@@ -181,9 +464,41 @@ public class Cconflict : MonoBehaviour
             // Target null ise patrol'a dön
             if (target == null&&target2==null)
             {
+                //print("targetlar boş");
                 isAttacking = false;
-                if (!inPatrol)
+                if (phase == GameManager.DayPhase.Night)
+                {                    
+                    if (nightTargetWall != null)
+                    {
+                        print("farthestWall != null");
+                        if (nightBehavior)
+                        {
+                            if (!nightBehaviorStarted)
+                            {
+                                float random = Random.Range(2f, 5f); // Sadece bir kez üret
+                                if (nightTargetWall.transform.position.x < 0)
+                                    StartNightBehavior(nightTargetWall, random);
+                                else
+                                    StartNightBehavior(nightTargetWall, -random);
+                                nightBehaviorStarted = true;
+                            }
+                            NightBehavior();
+                            if (patrolCoroutine != null)
+                            {
+                                inPatrol = false;
+                                StopCoroutine(patrolCoroutine);
+                                patrolCoroutine = null;
+                                inPatrol = false;
+                                calculateDirectionPatrol = false;
+                            }
+                        }
+                    }
+                }
+                else if (!inPatrol && patrolCoroutine == null)
+                {
                     patrolCoroutine = StartCoroutine(Patrol());
+                    print("patrol başladı");
+                }
 
                 yield return null; // Bir sonraki frame'e geç
                 continue;         // Döngüyü yeniden başlat
@@ -193,6 +508,7 @@ public class Cconflict : MonoBehaviour
             if (patrolCoroutine != null)
             {
                 StopCoroutine(patrolCoroutine);
+                patrolCoroutine = null;
                 inPatrol = false;
                 calculateDirectionPatrol = false;
             }
@@ -206,6 +522,10 @@ public class Cconflict : MonoBehaviour
                 if (target2 != null)
                 {
                     isAttacking = true;
+                    if (target2.transform.position.x > transform.position.x)
+                        sr.flipX = false;
+                    if (target2.transform.position.x < transform.position.x)
+                        sr.flipX = true;
                     ShootArrow(target2);
                     yield return new WaitForSeconds(attackCoolDown);
                     isAttacking = false;
@@ -214,6 +534,14 @@ public class Cconflict : MonoBehaviour
                 else if (target != null)
                 {
                     isAttacking = true;
+                    if (target.transform.position.x > transform.position.x)
+                    {
+                        sr.flipX = false;
+                    }
+                    if (target.transform.position.x < transform.position.x)
+                    {
+                        sr.flipX = true;
+                    }
                     ShootArrow(target);
                     yield return new WaitForSeconds(attackCoolDown);
                     isAttacking = false;
@@ -223,7 +551,78 @@ public class Cconflict : MonoBehaviour
             yield return null; // Her frame'de kontrol
         }
     }
-    
+
+    public GameObject GetLeftmostWall()
+    {
+        GameObject[] walls = GameObject.FindGameObjectsWithTag("Wall");
+        GameObject leftmost = null;
+        float minX = float.MaxValue;
+        foreach (var wall in walls)
+        {
+            if (wall.transform.position.x < minX)
+            {
+                minX = wall.transform.position.x;
+                leftmost = wall;
+            }
+        }
+        return leftmost;
+    }
+
+    public GameObject GetRightmostWall()
+    {
+        GameObject[] walls = GameObject.FindGameObjectsWithTag("Wall");
+        GameObject rightmost = null;
+        float maxX = float.MinValue;
+        foreach (var wall in walls)
+        {
+            if (wall.transform.position.x > maxX)
+            {
+                maxX = wall.transform.position.x;
+                rightmost = wall;
+            }
+        }
+        return rightmost;
+    }
+
+    void StartNightBehavior(GameObject target, float random)
+    {
+        nightTargetX = target.transform.position.x + random;
+        reachedNightTarget = false;
+    }
+
+    void NightBehavior()
+    {
+        if (reachedNightTarget||!nightBehavior) return;
+
+        Vector3 direction = (new Vector3(nightTargetX, transform.position.y, transform.position.z) - transform.position).normalized;
+        rb.linearVelocity = direction.normalized * citizenRunSpeed;
+        an.SetBool("isRun", true);
+
+        if (Mathf.Abs(transform.position.x - nightTargetX) < 0.34f)
+        {
+            rb.linearVelocity = Vector2.zero;
+            reachedNightTarget = true;
+            an.SetBool("isRun", false);
+            an.SetBool("isWalking", false);
+        }
+    }
+    public GameObject GetFarthestWall()
+    {
+        GameObject[] walls = GameObject.FindGameObjectsWithTag("Wall");
+        GameObject farthestWall=null;
+        float farthestDistance=0;
+        foreach(GameObject wall in walls)
+        {
+            float distance = Vector2.Distance(wall.transform.position, Vector2.zero);
+            if (distance > farthestDistance)
+            {
+                farthestDistance = distance;
+                farthestWall = wall.gameObject;
+            }
+        }
+        return farthestWall;
+    }
+
     //private void Attack(GameObject target)
     //{
     //    if (!isAttacking)
@@ -247,36 +646,40 @@ public class Cconflict : MonoBehaviour
     {
         if (rabbitTarget == null) return;
 
-        // Okun başlangıç pozisyonu (okçu pozisyonundan biraz yukarıda)
         Vector3 startPos = transform.position;
+        if (newCoinPool.Instance == null)
+        {
+            Debug.LogError("newCoinPool.Instance null!");
+            return;
+        }
         GameObject newArrow = newCoinPool.Instance.GetArrow();
+        print(newArrow.name);
+        if (newArrow == null)
+        {
+            Debug.LogError("newArrow null! GetArrow() prefabı atanmadı veya pool boş.");
+            return;
+        }
         newArrow.transform.position = startPos;
         Rigidbody2D rb = newArrow.GetComponent<Rigidbody2D>();
         if (rb != null)
         {
-            // Tavşanın pozisyonu
             Vector3 targetPos = rabbitTarget.transform.position;
-
-            // Yay şeklinde atış için gerekli parametreler
             float gravity = Mathf.Abs(Physics2D.gravity.y);
             float distance = Vector3.Distance(startPos, targetPos);
-
-            // Havada kalma süresini hesapla (isteğe bağlı olarak ayarlanabilir)
             float flightTime = distance / shootForce * 1.5f;
-
-            // Başlangıç hızını hesapla
             Vector2 initialVelocity = CalculateArcVelocity(startPos, targetPos, gravity, flightTime);
-
-            // Okun dönüş açısını ayarla (uçuş yönüne doğru)
             float angle = Mathf.Atan2(initialVelocity.y, initialVelocity.x) * Mathf.Rad2Deg;
             newArrow.transform.rotation = Quaternion.AngleAxis(angle, Vector3.forward);
-
             rb.linearVelocity = initialVelocity;
         }
         else
         {
             Debug.LogError("Ok prefabında Rigidbody2D component'i bulunamadı!");
         }
+    }
+    public void DamageTakenFalse()
+    {
+        an.SetBool("damageTaken",false);
     }
 
     private Vector2 CalculateArcVelocity(Vector3 startPos, Vector3 targetPos, float gravity, float time)
@@ -295,18 +698,57 @@ public class Cconflict : MonoBehaviour
         while (currentJob == Jobs.Builder)
         {
             GameObject target = FindNearest(builderRange, "Construction");
+
+            isAttacking = false;
             if (target == null)
             {
+                //print("targetlar boş");
+                an.SetBool("isBuild", false);
+                an.SetBool("isRun", false);
+                an.SetBool("isWalking", false);
                 isAttacking = false;
-                if (!inPatrol)
+                if (phase == GameManager.DayPhase.Night)
+                {
+                    if (nightTargetWall != null)
+                    {
+                        print("farthestWall != null");
+                        if (nightBehavior)
+                        {
+                            if (!nightBehaviorStarted)
+                            {
+                                float random = Random.Range(2f, 5f); // Sadece bir kez üret
+                                if (nightTargetWall.transform.position.x < 0)
+                                    StartNightBehavior(nightTargetWall, random);
+                                else
+                                    StartNightBehavior(nightTargetWall, -random);
+                                nightBehaviorStarted = true;
+                            }
+                            NightBehavior();
+                            if (patrolCoroutine != null)
+                            {
+                                inPatrol = false;
+                                StopCoroutine(patrolCoroutine);
+                                patrolCoroutine = null;
+                                inPatrol = false;
+                                calculateDirectionPatrol = false;
+                            }
+                        }
+                    }
+                }
+                else if (!inPatrol && patrolCoroutine == null)
+                {
                     patrolCoroutine = StartCoroutine(Patrol());
+                    print("patrol başladı");
+                }
                 isBuild = false;
+                an.SetBool("isBuild", false);
                 yield return null; // Bir sonraki frame'e geç
                 continue;         // Döngüyü yeniden başlat
             }
             if (patrolCoroutine != null)
             {
                 StopCoroutine(patrolCoroutine);
+                patrolCoroutine = null;
                 inPatrol = false;
                 calculateDirectionPatrol = false;
             }
@@ -316,6 +758,8 @@ public class Cconflict : MonoBehaviour
 
             if (!isBuild)
             {
+                an.SetBool("isBuild", false);
+                an.SetBool("isRun", true);
                 GoToConstruction(target, citizenRunSpeed);
             }
             yield return null;
@@ -344,38 +788,55 @@ public class Cconflict : MonoBehaviour
     }
     void GoToConstruction(GameObject target,float speed)
     {
+        goToBuild = true;
+        an.SetBool("isWalking", false);
+        an.SetBool("isBuild", false);
         Vector3 direction = (new Vector3(target.transform.position.x, transform.position.y) - transform.position).normalized;
         rb.linearVelocity = direction * speed;
-        if (Mathf.Abs(transform.position.x - target.transform.position.x) < 0.1f)
+        if (Mathf.Abs(transform.position.x - target.transform.position.x) < 0.2f)
         {
+            an.SetBool("isRun", false);
+            an.SetBool("isBuild", true);
             isBuild = true;
-
+            goToBuild = false;
         }
     }
-    
-    IEnumerator Patrol()     ////Ortak fonksiyon
+
+    IEnumerator Patrol()
     {
-        if(!calculateDirectionPatrol)
+        while (true)
         {
-            int rightOrLeft = Random.Range(0, 2);
-            targetXPatrol = (rightOrLeft == 0) ?
-                transform.position.x + patrolWalkDistance :
-                transform.position.x - patrolWalkDistance;
+            if (!calculateDirectionPatrol)
+            {
+                int rightOrLeft = Random.Range(0, 2);
+                targetXPatrol = (rightOrLeft == 0) ?
+                    transform.position.x + patrolWalkDistance :
+                    transform.position.x - patrolWalkDistance;
 
-            Vector2 targetPosition = new Vector2(targetXPatrol, transform.position.y);
-            patrolDirection = (targetPosition - (Vector2)transform.position).normalized;
+                Vector2 targetPosition = new Vector2(targetXPatrol, transform.position.y);
+                patrolDirection = (targetPosition - (Vector2)transform.position).normalized;
+                calculateDirectionPatrol = true;
+            }
+
+            an.SetBool("isRun", true);
+
+            // Hedefe ulaşana kadar hareket
+            while (Mathf.Abs(transform.position.x - targetXPatrol) > 0.1f)
+            {
+                rb.linearVelocity = new Vector2(patrolDirection.x * citizenSpeed, rb.linearVelocity.y);
+                an.SetBool("isWalking", true);
+                yield return null;
+            }
+
+            // Hedefe ulaştı
+            rb.linearVelocity = new Vector2(0f, rb.linearVelocity.y);
+            an.SetBool("isRun", false);
+
+            inPatrol = true;
+            yield return new WaitForSeconds(patrolCoolDown);
+            inPatrol = false;
+            calculateDirectionPatrol = false;
         }
-        calculateDirectionPatrol = true;
-        rb.linearVelocity = new Vector2(patrolDirection.x * citizenSpeed, rb.linearVelocity.y);
-
-        yield return new WaitUntil(() =>
-            Mathf.Abs(transform.position.x - targetXPatrol) < 0.1f
-        );
-        inPatrol = true;
-        yield return new WaitForSeconds(patrolCoolDown);
-
-        inPatrol = false;
-        calculateDirectionPatrol = false;
     }
     private void OnDrawGizmosSelected()
     {
@@ -388,11 +849,8 @@ public class Cconflict : MonoBehaviour
     {
         if (collision.CompareTag("character"))
         {
-            if (currentJob != Jobs.None)
-            {
                 if (moneyCount <= 0) return;
                 StartCoroutine(GiveMoneyToPlayer());
-            }
         }
         if(collision.CompareTag("enemy"))
         {
@@ -405,7 +863,11 @@ public class Cconflict : MonoBehaviour
     }
     IEnumerator GiveMoneyToPlayer()
     {
-        int coinsToGive = moneyCount;
+        int coinsToGive;
+        if (currentJob == Jobs.None)
+            coinsToGive = moneyCount - 1;
+        else
+            coinsToGive = moneyCount;
 
         for (int i = 0; i < coinsToGive; i++)
         {
@@ -413,7 +875,10 @@ public class Cconflict : MonoBehaviour
             coinToPlayer.transform.position = transform.position;
             yield return new WaitForSeconds(0.15f);
         }
-        moneyCount = 0;
+        if (currentJob == Jobs.None)
+            moneyCount = 1;
+        else
+            moneyCount = 0;
     }
     void LoseJob()
     {
@@ -427,6 +892,11 @@ public class Cconflict : MonoBehaviour
             StopCoroutine(patrolCoroutine);
             patrolCoroutine = null;
         }
+        if(GoStockCoroutine != null)
+        {
+            StopCoroutine(GoStockCoroutine);
+            GoStockCoroutine = null;
+        }
         currentJob = Jobs.None;
         if (CitizensManager.Instance.Builders.Contains(gameObject))
             CitizensManager.Instance.Builders.Remove(gameObject);
@@ -436,6 +906,11 @@ public class Cconflict : MonoBehaviour
         inPatrol = false;
         isAttacking = false;
         isBuild = false;
+        an.SetBool("NPC", true);
+        an.SetBool("Archer", false);
+        an.SetBool("Builder", false);
+        an.SetBool("isBuild", false);
+        zeroReached = false;
         tag = "NPC";
     }
 }

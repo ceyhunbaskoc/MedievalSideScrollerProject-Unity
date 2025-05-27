@@ -4,13 +4,13 @@ using UnityEngine;
 public class newCoin : MonoBehaviour
 {
     public float allowCollectTime, collectTransitionTime;
-    public bool newBorn = true, canCollect = false, conflictCharacter, conflictCitizen,conflictNPC;
+    public bool newBorn = true, canCollect = false, conflictCharacter, conflictCitizen,conflictNPC, hasStartedCollect=false;
     characterConflict cr;
     GameObject currentCitizen;
     Cconflict citizen;
     void Start()
     {
-        cr = FindObjectOfType<characterConflict>();
+        cr = FindFirstObjectByType<characterConflict>();
     }
 
     void Update()
@@ -23,24 +23,33 @@ public class newCoin : MonoBehaviour
         {
             StartCoroutine(AllowCollect());
         }
-        if (canCollect)
+        if (canCollect&&!hasStartedCollect)
         {
             if (conflictCharacter && !conflictCitizen)
             {
+                hasStartedCollect = true;
                 StartCoroutine(CollectTransitionToObject(cr.gameObject));
             }
             else if (conflictCitizen && !conflictCharacter)
             {
+                hasStartedCollect = true;
                 StartCoroutine(CollectTransitionToObject(currentCitizen));
             }
             else if (conflictCitizen && conflictCitizen)
             {
+                hasStartedCollect = true;
                 StartCoroutine(CollectTransitionToObject(cr.gameObject));
             }
             else if(conflictNPC&&conflictCharacter)
+            {
+                hasStartedCollect = true;
                 StartCoroutine(CollectTransitionToObject(currentCitizen));
+            }
             else if(conflictNPC&&!conflictCharacter)
+            {
+                hasStartedCollect = true;
                 StartCoroutine(CollectTransitionToObject(currentCitizen));
+            }
         }
     }
     IEnumerator AllowCollect()
@@ -56,12 +65,12 @@ public class newCoin : MonoBehaviour
         {
             conflictCharacter = true;
         }
-        if (collision.gameObject.CompareTag("citizen"))
+        if (collision.gameObject.CompareTag("citizen")&&collision.gameObject.GetComponent<Cconflict>().equipment)
         {
             conflictCitizen = true;
             currentCitizen = collision.gameObject;
         }
-        if (collision.gameObject.CompareTag("NPC"))
+        if (collision.gameObject.CompareTag("NPC")&&!collision.gameObject.GetComponent<Cconflict>().NPCMoney)
         {
             conflictNPC = true;
             currentCitizen = collision.gameObject;
@@ -86,17 +95,46 @@ public class newCoin : MonoBehaviour
     }
     IEnumerator CollectTransitionToObject(GameObject o)
     {
+        if (o == null)
+        {
+            hasStartedCollect = false;
+            yield break; // Hedef yoksa çýk
+        }
+
         float elapsedTime = 0;
         Vector2 startingPos = transform.position;
         while (elapsedTime < collectTransitionTime)
         {
+            if (o == null)
+            {
+                hasStartedCollect = false;
+                yield break;
+            }// Hedef yoksa çýk
             transform.position = Vector2.Lerp(startingPos, o.transform.position, (elapsedTime / collectTransitionTime));
             elapsedTime += Time.deltaTime;
             yield return null;
         }
-        transform.position = o.transform.position;
-        if(o==cr.gameObject) { cr.moneyCount++; }
-        if (o == currentCitizen) { citizen.moneyCount++; }
+        if (o != null)
+            transform.position = o.transform.position;
+
+        if (cr != null && o == cr.gameObject)
+        {
+            cr.moneyCount++;
+        }
+        //print("currentCitizen != null = " + (currentCitizen != null));
+        //print("currentCitizen != null = " + (currentCitizen != null));
+        //print("o == currentCitizen = " + (o == currentCitizen));
+        if (currentCitizen != null && citizen != null && o == currentCitizen)
+        {
+            citizen.moneyCount++;
+            if(citizen.currentJob==Cconflict.Jobs.None)
+            {
+                citizen.NPCMoney = true;
+                //print("NPC MONEY TRUE OLDU");
+            }
+        }
+        hasStartedCollect = false;
         newCoinPool.Instance.DisableCoin(gameObject);
     }
+
 }

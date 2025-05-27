@@ -28,6 +28,7 @@ public class arrow : MonoBehaviour
             if (collision.gameObject.name.Contains(newCoinPool.Instance.enemyPrefab1.name))
             {
                 enemy enemyScript1 = collision.gameObject.GetComponent<enemy>();
+                collision.gameObject.GetComponent<Animator>().SetBool("damageTaken", true);
                 enemyScript1.HP -= damage;
             }
         }

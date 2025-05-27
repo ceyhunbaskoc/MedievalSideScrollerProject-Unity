@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using UnityEngine;
+using UnityEngine.UI;
 using static UnityEngine.GraphicsBuffer;
 
 public class ArcherTower : MonoBehaviour
@@ -14,6 +15,12 @@ public class ArcherTower : MonoBehaviour
     public float damage;
     public float attackCoolDown;
 
+    
+
+    private void Start()
+    {
+        transform.position = new Vector2(transform.position.x, -0.6650324f);
+    }
     private void Update()
     {
         if (currentBehaviorCoroutine == null)

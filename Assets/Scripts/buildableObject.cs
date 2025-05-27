@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using Unity.VisualScripting;
 using Unity.VisualScripting.Antlr3.Runtime.Misc;
-using UnityEditor.IMGUI.Controls;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -50,9 +49,11 @@ public class buildableObject : MonoBehaviour
     public float currentProgress = 0f; // 0-100 arası ilerleme
     public float progressPerSecond = 10f; // Her inşaatçı başına saniyede ne kadar ilerlesin
 
+    public List<Cconflict> currentBuilders = new List<Cconflict>();
+
     protected virtual void Start()
     {
-        cr = FindObjectOfType<characterConflict>();
+        cr = FindFirstObjectByType<characterConflict>();
         sr = GetComponent<SpriteRenderer>();
         //FindCanvasChilds();
         CreateCanvasHolder();
@@ -76,8 +77,31 @@ public class buildableObject : MonoBehaviour
             if (currentProgress >= 100f)
             {
                 building = Instantiate(BuildingsPrefabs[whatBuilding], transform.position, Quaternion.identity);
+                if (BuildingsPrefabs[whatBuilding].name=="Wall")
+                {
+                    if(GameObject.Find("Walls")==null)
+                    {
+                        GameObject walls = new GameObject();
+                        walls.name = "Walls";
+                    }
+                    building.transform.SetParent(GameObject.Find("Walls").transform);
+                }
+                else if (BuildingsPrefabs[whatBuilding].name == "archerTower 1")
+                {
+                    if (GameObject.Find("ArcherTowers") == null)
+                    {
+                        GameObject arcTower = new GameObject();
+                        arcTower.name = "ArcherTowers";
+                    }
+                    building.transform.SetParent(GameObject.Find("ArcherTowers").transform);
+                }
                 isConstruction = false;
                 cr.onBuildable = false;
+                print("destroy");
+                foreach(Cconflict builder in currentBuilders)
+                {
+                    builder.isBuild = false;
+                }
                 Destroy(gameObject);
             }
         }
@@ -94,6 +118,7 @@ public class buildableObject : MonoBehaviour
         canvasCreate.transform.position = new Vector3(transform.position.x,canvasPositionY,0);
         canvasCreate.transform.localRotation = Quaternion.identity;
         canvasCreate.transform.localScale = canvasScale;
+        
         canvasCreate.transform.SetParent(canvasHolder.transform);
 
         // Canvas component ekle
@@ -111,6 +136,7 @@ public class buildableObject : MonoBehaviour
         canvasRect = canvasCreate.GetComponent<RectTransform>();
         canvasRect.sizeDelta = canvasSize; // İstediğin boyut
         Canvas = canvasCreate.transform;
+        canvasCreate.GetComponent<Canvas>().sortingOrder = gameObject.GetComponent<SpriteRenderer>().sortingOrder;
     }
     public void GenerateSlots()
     {
@@ -134,7 +160,11 @@ public class buildableObject : MonoBehaviour
 
             for (int i = 0; i < slotsThisRow; i++)
             {
-                float angle = startAngle + i * angleStep;
+                float angle;
+                if (angleStep != 0)
+                    angle = startAngle + i * angleStep;
+                else
+                    angle = 0;
                 float rad = Mathf.Deg2Rad * angle;
                 Vector3 pos = new Vector3(Mathf.Sin(rad), Mathf.Cos(rad), 0) * radius;
 
@@ -169,16 +199,20 @@ public class buildableObject : MonoBehaviour
             if (collision.gameObject.GetComponent<Cconflict>().currentJob == Cconflict.Jobs.Builder)
             {
                 currentBuildersOnThis++;
+                currentBuilders.Add(collision.gameObject.GetComponent<Cconflict>());
             }
         }
     }
     protected virtual void OnTriggerExit2D(Collider2D collision)
     {
-        if (collision.gameObject.CompareTag("character")&& centerDistanceCheck)
+        if (collision.gameObject.CompareTag("character") && centerDistanceCheck)
         {
-            foreach (GameObject slots in coinSlots)
+            if (!isConstruction)
             {
-                slots.SetActive(false);
+                foreach (GameObject slots in coinSlots)
+                {
+                    slots.SetActive(false);
+                }
             }
         }
         if (collision.CompareTag("citizen"))
@@ -187,13 +221,15 @@ public class buildableObject : MonoBehaviour
             if (c != null && c.currentJob == Cconflict.Jobs.Builder)
             {
                 currentBuildersOnThis--;
+                currentBuilders.Remove(collision.gameObject.GetComponent<Cconflict>());
                 currentBuildersOnThis = Mathf.Max(0, currentBuildersOnThis);
             }
         }
     }
 
-    public void PlaceCoin(GameObject coin)
+    public virtual void PlaceCoin(GameObject coin)
     {
+        //print("PLACECOIN ÇALIŞTI");
         if (!isConstruction)
         {
             if (currentCoinCount < coinSlots.Count)
@@ -206,8 +242,9 @@ public class buildableObject : MonoBehaviour
 
     }
 
-    public IEnumerator MoveCoinToSlot(GameObject coin, Transform slot)
+    public virtual IEnumerator MoveCoinToSlot(GameObject coin, Transform slot)
     {
+        //print("movecointoslot");
         newCoin co = coin.GetComponent<newCoin>();
         Rigidbody2D rbCoin = coin.GetComponent<Rigidbody2D>();
         rbCoin.gravityScale = 0;
@@ -227,7 +264,8 @@ public class buildableObject : MonoBehaviour
         {
             if (!isDroppingCoins)
             {
-                StartCoroutine(WaitAndDropCoins(currentSlot));
+                if (totalSlots != currentCoinCount)
+                    StartCoroutine(WaitAndDropCoins(currentSlot));
             }
         }
     }
@@ -248,6 +286,8 @@ public class buildableObject : MonoBehaviour
             for (int i = 0; i < coins.Count; i++)
             {
                 Rigidbody2D rb = coins[i].GetComponent<Rigidbody2D>();
+                Animator an = coins[i].GetComponent<Animator>();
+                an.SetBool("inSlot", false);
                 rb.gravityScale = newCoinPool.Instance.gravity;
             }
             coins.Clear();
@@ -263,6 +303,8 @@ public class buildableObject : MonoBehaviour
             for (int i = 0; i < coins.Count; i++)
             {
                 Rigidbody2D rb = coins[i].GetComponent<Rigidbody2D>();
+                Animator an = coins[i].GetComponent<Animator>();
+                an.SetBool("inSlot", false);
                 rb.gravityScale = newCoinPool.Instance.gravity;
             }
             coins.Clear();

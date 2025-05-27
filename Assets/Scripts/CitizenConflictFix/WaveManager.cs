@@ -75,12 +75,15 @@ public class WaveManager : MonoBehaviour
 
             // Rastgele spawn noktasý seç
             Transform spawnPoint = spawnPoints[Random.Range(0, spawnPoints.Length)];
+            SpriteRenderer spSr= spawnPoint.GetComponent<SpriteRenderer>();
             print(enemyPrefab == newCoinPool.Instance.enemyPrefab1);
             // Canavarý oluþtur
             if (enemyPrefab == newCoinPool.Instance.enemyPrefab1)
             {
                 GameObject enemy = newCoinPool.Instance.GetEnemy1();
-                enemy.transform.position = spawnPoint.position;
+                SpriteRenderer sr = enemy.GetComponent<SpriteRenderer>();
+                Vector2 spawnPos = new Vector2(spawnPoint.transform.position.x, spSr.bounds.min.y+(enemy.transform.position.y- sr.bounds.min.y));
+                enemy.transform.position = spawnPos;
             }
 
             // Spawn aralýðý

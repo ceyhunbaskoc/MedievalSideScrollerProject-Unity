@@ -13,7 +13,7 @@ public class character : MonoBehaviour
     coinPool pool;
     void Start()
     {
-        pool = FindObjectOfType<coinPool>();
+        pool = FindFirstObjectByType<coinPool>();
         rb = GetComponent<Rigidbody2D>();
     }
 
