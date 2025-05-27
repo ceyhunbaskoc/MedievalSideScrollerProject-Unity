@@ -21,11 +21,11 @@ In **Mediavel Side Scroller Project**, your goal is to survive nightly enemy att
 
 ## 📸 Screenshots  
 
-**In-game Screenshots (The game is not finished yet, this is a demo version!!!):**
+(The game is not finished yet, this is a demo version!!!):**
 
 **In-game footage (2x Accelerated) :**
 
-![1](Assets/GameplayVideos/video1.gif)
+![1](Assets/GameplayVideos/video1.gif)          ![2](Assets/GameplayVideos/video2.gif)
 
 ![2](Assets/GameplayVideos/video2.gif)
 
