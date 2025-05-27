@@ -1,4 +1,4 @@
-# 🪙 Mediavel Side Scroller Project (Still Developing) 
+# 🌙 Nightclaw (Still Developing) 
 [![Unity Version](https://img.shields.io/badge/Unity-6+-black.svg?logo=unity)]
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://img.shields.io/badge/License-MIT-yellow.svg)]
 
@@ -21,15 +21,18 @@ In **Mediavel Side Scroller Project**, your goal is to survive nightly enemy att
 
 ## 📸 Screenshots  
 
-**In-game Screenshots (The game is not finished yet, this is just a gameplay demo!!!):**
+**In-game Screenshots (The game is not finished yet, this is a demo version!!!):**
 
-**Builder Behavior (2x Accelerated) :**
+**In-game footage (2x Accelerated) :**
 
-![Builder Behavior](Assets/GameplayVideos/MediavelDemo1.gif)
+![1](Assets/GameplayVideos/video1.gif)
 
-**Archer Behavior (2x Accelerated) :**
+![2](Assets/GameplayVideos/video2.gif)
 
-![Archer Behavior](Assets/GameplayVideos/MediavelDemo2.gif)
+![3](Assets/GameplayVideos/video3.gif)
+
+![4](Assets/GameplayVideos/video4.gif)
+
 
 ---
 
