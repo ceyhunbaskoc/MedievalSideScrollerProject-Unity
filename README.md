@@ -25,7 +25,7 @@ In **Mediavel Side Scroller Project**, your goal is to survive nightly enemy att
 
 **In-game footage (2x Accelerated) :**
 
-![1](Assets/GameplayVideos/video1.gif)          ![2](Assets/GameplayVideos/video2.gif)
+![1](Assets/GameplayVideos/video1.gif)
 
 ![2](Assets/GameplayVideos/video2.gif)
 
